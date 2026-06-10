@@ -36,24 +36,47 @@ local MainSection = MainPage:Section({Name = "Mafia ESP", Description = "Player 
 local PullerSection = MainPage:Section({Name = "Player Puller", Description = "Bring all players near you", Icon = "100050851789190"})
 local DetectorSection = MainPage:Section({Name = "Kill Detector", Description = "Detect gun shots & stabs", Icon = "100050851789190"})
 
--- ==================== NOTIFICATION SYSTEM (Fixed) ====================
+-- ==================== CUSTOM NOTIFICATION SYSTEM (FIXED) ====================
 local function showNotification(title, description, duration)
     duration = duration or 3
     
-    local notif = Library:Notification({
-        Title = title,
-        Description = description,
-        Duration = duration
-    })
+    -- Create notification frame directly
+    local notifFrame = Instance.new("Frame")
+    notifFrame.Name = "\0"
+    notifFrame.Parent = Library.NotifHolder.Instance
+    notifFrame.BackgroundTransparency = 0.35
+    notifFrame.BackgroundColor3 = Color3.fromRGB(27, 25, 29)
+    notifFrame.BorderSizePixel = 0
+    notifFrame.AutomaticSize = Enum.AutomaticSize.XY
     
-    -- Auto-remove after duration
-    if notif and notif.Instance then
-        task.delay(duration, function()
-            if notif.Instance and notif.Instance.Parent then
-                notif.Instance:Destroy()
-            end
-        end)
-    end
+    local corner = Instance.new("UICorner")
+    corner.Parent = notifFrame
+    corner.CornerRadius = UDim.new(0, 8)
+    
+    local padding = Instance.new("UIPadding")
+    padding.Parent = notifFrame
+    padding.PaddingTop = UDim.new(0, 8)
+    padding.PaddingBottom = UDim.new(0, 8)
+    padding.PaddingRight = UDim.new(0, 8)
+    padding.PaddingLeft = UDim.new(0, 8)
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Parent = notifFrame
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.BorderSizePixel = 0
+    titleLabel.AutomaticSize = Enum.AutomaticSize.XY
+    titleLabel.Font = Library.Font
+    titleLabel.TextSize = 14
+    
+    -- Auto-destroy after duration
+    task.delay(duration, function()
+        if notifFrame and notifFrame.Parent then
+            notifFrame:Destroy()
+        end
+    end)
 end
 
 -- ==================== HELPER FUNCTIONS ====================
