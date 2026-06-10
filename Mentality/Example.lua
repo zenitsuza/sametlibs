@@ -20,8 +20,6 @@ local refreshLoop = nil
 local detectorConn = nil
 local connections = {}
 local originalPositions = {}
-local notificationQueue = {}
-local notificationTimer = nil
 
 -- ==================== GUI SETUP ====================
 local Window = Library:Window({
@@ -30,11 +28,9 @@ local Window = Library:Window({
     Logo = "120959262762131"
 })
 
-local KeybindList = Library:KeybindList("Keybinds")
-
 Window:Category("Main")
 local MainPage = Window:Page({Name = "Main", Icon = "100050851789190", Columns = 1})
-local SettingsPage = Library:CreateSettingsPage(Window, KeybindList)
+local SettingsPage = Library:CreateSettingsPage(Window)
 
 local MainSection = MainPage:Section({Name = "Mafia ESP", Description = "Player detection and visualization", Icon = "100050851789190"})
 local PullerSection = MainPage:Section({Name = "Player Puller", Description = "Bring all players near you", Icon = "100050851789190"})
@@ -44,11 +40,20 @@ local DetectorSection = MainPage:Section({Name = "Kill Detector", Description = 
 local function showNotification(title, description, duration)
     duration = duration or 3
     
-    Library:Notification({
+    local notif = Library:Notification({
         Title = title,
         Description = description,
         Duration = duration
     })
+    
+    -- Auto-remove after duration
+    if notif and notif.Instance then
+        task.delay(duration, function()
+            if notif.Instance and notif.Instance.Parent then
+                notif.Instance:Destroy()
+            end
+        end)
+    end
 end
 
 -- ==================== HELPER FUNCTIONS ====================
