@@ -5,6 +5,7 @@ local Players = game:GetService('Players')
 local TextChatService = game:GetService('TextChatService')
 local RunService = game:GetService('RunService')
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 local RED   = Color3.fromRGB(255, 20, 100)
@@ -36,46 +37,55 @@ local MainSection = MainPage:Section({Name = "Mafia ESP", Description = "Player 
 local PullerSection = MainPage:Section({Name = "Player Puller", Description = "Bring all players near you", Icon = "100050851789190"})
 local DetectorSection = MainPage:Section({Name = "Kill Detector", Description = "Detect gun shots & stabs", Icon = "100050851789190"})
 
--- ==================== CUSTOM NOTIFICATION SYSTEM (FIXED) ====================
+-- ==================== CUSTOM NOTIFICATION (GUARANTEED DESTROY) ====================
 local function showNotification(title, description, duration)
-    duration = duration or 3
+    duration = duration or 1.5
     
-    -- Create notification frame directly
-    local notifFrame = Instance.new("Frame")
-    notifFrame.Name = "\0"
-    notifFrame.Parent = Library.NotifHolder.Instance
-    notifFrame.BackgroundTransparency = 0.35
-    notifFrame.BackgroundColor3 = Color3.fromRGB(27, 25, 29)
-    notifFrame.BorderSizePixel = 0
-    notifFrame.AutomaticSize = Enum.AutomaticSize.XY
-    
-    local corner = Instance.new("UICorner")
-    corner.Parent = notifFrame
-    corner.CornerRadius = UDim.new(0, 8)
-    
-    local padding = Instance.new("UIPadding")
-    padding.Parent = notifFrame
-    padding.PaddingTop = UDim.new(0, 8)
-    padding.PaddingBottom = UDim.new(0, 8)
-    padding.PaddingRight = UDim.new(0, 8)
-    padding.PaddingLeft = UDim.new(0, 8)
-    
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Name = "Title"
-    titleLabel.Parent = notifFrame
-    titleLabel.Text = title
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.BorderSizePixel = 0
-    titleLabel.AutomaticSize = Enum.AutomaticSize.XY
-    titleLabel.Font = Library.Font
-    titleLabel.TextSize = 14
-    
-    -- Auto-destroy after duration
-    task.delay(duration, function()
-        if notifFrame and notifFrame.Parent then
-            notifFrame:Destroy()
-        end
+    spawn(function()
+        -- Create frame
+        local notifFrame = Instance.new("Frame")
+        notifFrame.Name = "\0"
+        notifFrame.Parent = Library.NotifHolder.Instance
+        notifFrame.BackgroundTransparency = 0.35
+        notifFrame.BackgroundColor3 = Color3.fromRGB(27, 25, 29)
+        notifFrame.BorderSizePixel = 0
+        notifFrame.AutomaticSize = Enum.AutomaticSize.XY
+        
+        local corner = Instance.new("UICorner")
+        corner.Parent = notifFrame
+        corner.CornerRadius = UDim.new(0, 8)
+        
+        local padding = Instance.new("UIPadding")
+        padding.Parent = notifFrame
+        padding.PaddingTop = UDim.new(0, 8)
+        padding.PaddingBottom = UDim.new(0, 8)
+        padding.PaddingRight = UDim.new(0, 8)
+        padding.PaddingLeft = UDim.new(0, 8)
+        
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "Title"
+        titleLabel.Parent = notifFrame
+        titleLabel.Text = title
+        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.BorderSizePixel = 0
+        titleLabel.AutomaticSize = Enum.AutomaticSize.XY
+        titleLabel.Font = Library.Font
+        titleLabel.TextSize = 14
+        
+        -- Wait then fade out
+        wait(duration - 0.3)
+        
+        -- Fade out and destroy
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(notifFrame, tweenInfo, {BackgroundTransparency = 1})
+        
+        tween:Play()
+        tween.Completed:Connect(function()
+            if notifFrame and notifFrame.Parent then
+                notifFrame:Destroy()
+            end
+        end)
     end)
 end
 
@@ -227,11 +237,11 @@ MainSection:Toggle({
                 end)
             end
             
-            showNotification("Mafia ESP", "Enabled", 2)
+            showNotification("✓ Mafia ESP", "Enabled", 1.5)
         else
             espEnabled = false
             removeAllESP()
-            showNotification("Mafia ESP", "Disabled", 2)
+            showNotification("✗ Mafia ESP", "Disabled", 1.5)
         end
     end,
 })
@@ -289,7 +299,7 @@ PullerSection:Toggle({
             end)
 
             table.insert(connections, loopConn)
-            showNotification("Player Puller", "Bringing everyone...", 3)
+            showNotification("🔗 Pulling", "Everyone is coming...", 1.5)
         else
             for _, c in pairs(connections) do c:Disconnect() end
             connections = {}
@@ -309,7 +319,7 @@ PullerSection:Toggle({
             end
             originalPositions = {}
             
-            showNotification("Player Puller", "Stopped + Restored", 3)
+            showNotification("✓ Released", "Players restored", 1.5)
         end
     end,
 })
@@ -323,7 +333,7 @@ DetectorSection:Toggle({
         detectorEnabled = Value
         
         if Value then
-            showNotification("Kill Detector", "Watching for shots & stabs", 3)
+            showNotification("👁️ Detector", "Watching for kills...", 1.5)
             
             local function findEffectsRemote()
                 local function searchForRemote(obj, depth)
@@ -363,15 +373,15 @@ DetectorSection:Toggle({
                             if shooter and victim then
                                 local shooterName = shooter.Name or tostring(shooter)
                                 local victimName = victim.Name or tostring(victim)
-                                local action = (effectType:find("gun") or effectType:find("shot")) and "🔫 SHOT" or "🔪 STABBED"
+                                local action = (effectType:find("gun") or effectType:find("shot")) and "🔫" or "🔪"
                                 
-                                showNotification("Kill Detected", shooterName .. " " .. action .. " " .. victimName, 5)
+                                showNotification(action .. " " .. shooterName, "→ " .. victimName, 1.5)
                                 print("[MAFIA KILL]", shooterName, action, victimName)
                             end
                         end
                     end)
                 else
-                    showNotification("Kill Detector", "Remote not found - manual mode", 3)
+                    showNotification("⚠️ Remote Not Found", "Manual mode", 1.5)
                 end
             end
         else
@@ -379,13 +389,13 @@ DetectorSection:Toggle({
                 detectorConn:Disconnect()
                 detectorConn = nil
             end
-            showNotification("Kill Detector", "Disabled", 2)
+            showNotification("✓ Detector Off", "Stopped", 1.5)
         end
     end,
 })
 
 -- ==================== INITIALIZE ====================
-showNotification("Loaded Successfully", "Mafia Hub Ready", 4)
+showNotification("✅ Loaded", "Mafia Hub Ready", 1.5)
 
 Window:Init()
 
