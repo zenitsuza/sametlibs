@@ -4,6 +4,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/samet
 local Players = game:GetService('Players')
 local TextChatService = game:GetService('TextChatService')
 local RunService = game:GetService('RunService')
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local LocalPlayer = Players.LocalPlayer
 
 local RED   = Color3.fromRGB(255, 20, 100)
@@ -14,14 +15,18 @@ local MafiaChannel = TextChatService:FindFirstChild('TextChannels'):FindFirstChi
 
 local espEnabled = false
 local isBringing = false
+local detectorEnabled = false
 local refreshLoop = nil
+local detectorConn = nil
 local connections = {}
 local originalPositions = {}
+local notificationQueue = {}
+local notificationTimer = nil
 
 -- ==================== GUI SETUP ====================
 local Window = Library:Window({
     Name = "Mafia Hub",
-    SubName = "ESP + Puller",
+    SubName = "ESP + Puller + Detector",
     Logo = "120959262762131"
 })
 
@@ -33,6 +38,18 @@ local SettingsPage = Library:CreateSettingsPage(Window, KeybindList)
 
 local MainSection = MainPage:Section({Name = "Mafia ESP", Description = "Player detection and visualization", Icon = "100050851789190"})
 local PullerSection = MainPage:Section({Name = "Player Puller", Description = "Bring all players near you", Icon = "100050851789190"})
+local DetectorSection = MainPage:Section({Name = "Kill Detector", Description = "Detect gun shots & stabs", Icon = "100050851789190"})
+
+-- ==================== NOTIFICATION SYSTEM (Fixed) ====================
+local function showNotification(title, description, duration)
+    duration = duration or 3
+    
+    Library:Notification({
+        Title = title,
+        Description = description,
+        Duration = duration
+    })
+end
 
 -- ==================== HELPER FUNCTIONS ====================
 local function isMafia(player)
@@ -182,20 +199,11 @@ MainSection:Toggle({
                 end)
             end
             
-            Library:Notification({
-                Title = "Mafia ESP",
-                Description = "Enabled",
-                Duration = 2
-            })
+            showNotification("Mafia ESP", "Enabled", 2)
         else
             espEnabled = false
             removeAllESP()
-            
-            Library:Notification({
-                Title = "Mafia ESP",
-                Description = "Disabled",
-                Duration = 2
-            })
+            showNotification("Mafia ESP", "Disabled", 2)
         end
     end,
 })
@@ -253,12 +261,7 @@ PullerSection:Toggle({
             end)
 
             table.insert(connections, loopConn)
-            
-            Library:Notification({
-                Title = "Player Puller",
-                Description = "Bringing everyone...",
-                Duration = 3
-            })
+            showNotification("Player Puller", "Bringing everyone...", 3)
         else
             for _, c in pairs(connections) do c:Disconnect() end
             connections = {}
@@ -278,22 +281,84 @@ PullerSection:Toggle({
             end
             originalPositions = {}
             
-            Library:Notification({
-                Title = "Player Puller",
-                Description = "Stopped + Restored",
-                Duration = 3
-            })
+            showNotification("Player Puller", "Stopped + Restored", 3)
+        end
+    end,
+})
+
+-- ==================== MAFIA KILL DETECTOR (Gun + Stab) ====================
+DetectorSection:Toggle({
+    Name = "Kill Detector (Gun + Stab)",
+    Flag = "KillDetector",
+    Default = false,
+    Callback = function(Value)
+        detectorEnabled = Value
+        
+        if Value then
+            showNotification("Kill Detector", "Watching for shots & stabs", 3)
+            
+            local function findEffectsRemote()
+                local function searchForRemote(obj, depth)
+                    if depth > 5 then return nil end
+                    
+                    if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                        if obj.Name:lower():find("effect") or obj.Name:lower():find("damage") or obj.Name:lower():find("kill") then
+                            return obj
+                        end
+                    end
+                    
+                    for _, child in ipairs(obj:GetChildren()) do
+                        local result = searchForRemote(child, depth + 1)
+                        if result then return result end
+                    end
+                    return nil
+                end
+                
+                return searchForRemote(ReplicatedStorage)
+            end
+
+            if not detectorConn then
+                local effectsRemote = findEffectsRemote()
+                
+                if effectsRemote then
+                    detectorConn = effectsRemote.OnClientEvent:Connect(function(...)
+                        if not detectorEnabled then return end
+                        
+                        local args = {...}
+                        if #args < 2 then return end
+                        
+                        local effectType = tostring(args[1]):lower()
+                        local shooter = args[2]
+                        local victim = args[3]
+                        
+                        if (effectType:find("gun") or effectType:find("shot") or effectType:find("stab") or effectType:find("knife")) then
+                            if shooter and victim then
+                                local shooterName = shooter.Name or tostring(shooter)
+                                local victimName = victim.Name or tostring(victim)
+                                local action = (effectType:find("gun") or effectType:find("shot")) and "🔫 SHOT" or "🔪 STABBED"
+                                
+                                showNotification("Kill Detected", shooterName .. " " .. action .. " " .. victimName, 5)
+                                print("[MAFIA KILL]", shooterName, action, victimName)
+                            end
+                        end
+                    end)
+                else
+                    showNotification("Kill Detector", "Remote not found - manual mode", 3)
+                end
+            end
+        else
+            if detectorConn then
+                detectorConn:Disconnect()
+                detectorConn = nil
+            end
+            showNotification("Kill Detector", "Disabled", 2)
         end
     end,
 })
 
 -- ==================== INITIALIZE ====================
-Library:Notification({
-    Title = "Loaded Successfully",
-    Description = "Mafia Hub Ready",
-    Duration = 4
-})
+showNotification("Loaded Successfully", "Mafia Hub Ready", 4)
 
 Window:Init()
 
-print("✅ Mafia Hub Loaded with Mentality UI")
+print("✅ Mafia Hub with Kill Detector Loaded - Mentality UI")
